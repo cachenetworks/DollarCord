@@ -39,3 +39,4 @@ Thumbs.db
 
 # Local assistant/tooling config
 .claude/settings.local.json
+.claude/
