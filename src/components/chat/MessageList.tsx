@@ -1,0 +1,75 @@
+"use client";
+
+import { MessageItem } from "./MessageItem";
+import type { Message } from "@/types";
+
+interface Props {
+  messages: Message[];
+  currentUserId: string;
+  canManage: boolean;
+  onEdit: (messageId: string, content: string) => Promise<void>;
+  onDelete: (messageId: string) => Promise<void>;
+  onReaction: (messageId: string, emoji: string, hasReacted: boolean) => Promise<void>;
+  onReply: (message: Message) => void;
+}
+
+function formatDate(date: Date | string) {
+  const d = new Date(date);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+}
+
+export function MessageList({ messages, currentUserId, canManage, onEdit, onDelete, onReaction, onReply }: Props) {
+  if (messages.length === 0) return null;
+
+  // Group by date
+  const groups: { date: string; msgs: Message[] }[] = [];
+  for (const msg of messages) {
+    const date = formatDate(msg.createdAt);
+    const last = groups[groups.length - 1];
+    if (last && last.date === date) last.msgs.push(msg);
+    else groups.push({ date, msgs: [msg] });
+  }
+
+  return (
+    <div className="pb-2">
+      {groups.map(({ date, msgs }) => (
+        <div key={date}>
+          {/* Date divider */}
+          <div className="flex items-center gap-3 px-4 my-4">
+            <div className="flex-1 h-px bg-dc-border" />
+            <span className="text-dc-muted text-xs font-semibold whitespace-nowrap">{date}</span>
+            <div className="flex-1 h-px bg-dc-border" />
+          </div>
+
+          {msgs.map((msg, i) => {
+            const prev = msgs[i - 1];
+            const isConsecutive =
+              prev &&
+              !prev.deleted &&
+              prev.userId === msg.userId &&
+              new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60_000;
+
+            return (
+              <MessageItem
+                key={msg.id}
+                message={msg}
+                isConsecutive={isConsecutive ?? false}
+                currentUserId={currentUserId}
+                canManage={canManage}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onReaction={onReaction}
+                onReply={onReply}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}

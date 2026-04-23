@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  bio          String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions              Session[]
+  ownedServers          Server[]                   @relation("ServerOwner")
+  serverMembers         ServerMember[]
+  messages              Message[]
+  dmsSent               DirectMessage[]            @relation("DMSender")
+  dmParticipants        DirectMessageParticipant[]
+  reactionsGiven        Reaction[]
+  pinnedBy              PinnedMessage[]            @relation("PinnedBy")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Server {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  iconUrl     String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User           @relation("ServerOwner", fields: [ownerId], references: [id])
+  members  ServerMember[]
+  channels Channel[]
+  invites  Invite[]
+}
+
+model ServerMember {
+  id       String   @id @default(cuid())
+  serverId String
+  userId   String
+  role     String   @default("MEMBER") // OWNER | ADMIN | MEMBER
+  joinedAt DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
+}
+
+model Invite {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  serverId  String
+  createdBy String
+  maxUses   Int?
+  uses      Int       @default(0)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+}
+
+model Channel {
+  id          String   @id @default(cuid())
+  serverId    String
+  name        String
+  description String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  server         Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  pinnedMessages PinnedMessage[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  content   String
+  edited    Boolean  @default(false)
+  deleted   Boolean  @default(false)
+  replyToId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  channel   Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id])
+  replyTo   Message?       @relation("MessageReply", fields: [replyToId], references: [id])
+  replies   Message[]      @relation("MessageReply")
+  reactions Reaction[]
+  pinnedIn  PinnedMessage[]
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+}
+
+model PinnedMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  messageId String
+  pinnedBy  String
+  createdAt DateTime @default(now())
+
+  channel      Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  message      Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedByUser User    @relation("PinnedBy", fields: [pinnedBy], references: [id])
+
+  @@unique([channelId, messageId])
+}
+
+model DirectMessageThread {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants DirectMessageParticipant[]
+  messages     DirectMessage[]
+}
+
+model DirectMessageParticipant {
+  id       String @id @default(cuid())
+  threadId String
+  userId   String
+
+  thread DirectMessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+}
+
+model DirectMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  content   String
+  edited    Boolean  @default(false)
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  thread DirectMessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User                @relation("DMSender", fields: [senderId], references: [id])
+}

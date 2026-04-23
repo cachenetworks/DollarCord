@@ -1,0 +1,176 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSocket } from "@/contexts/SocketContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { CreateServerModal } from "@/components/modals/CreateServerModal";
+import { JoinServerModal } from "@/components/modals/JoinServerModal";
+import type { Server, Channel, User } from "@/types";
+
+interface ServerWithRole extends Server {
+  role: string;
+  channels: Channel[];
+}
+
+interface Props {
+  user: User;
+  initialServers: ServerWithRole[];
+}
+
+function ServerIcon({ server, active }: { server: Server; active: boolean }) {
+  const initial = server.name[0].toUpperCase();
+  const colors = [
+    "bg-violet-600", "bg-blue-600", "bg-emerald-600",
+    "bg-rose-600", "bg-amber-600", "bg-cyan-600",
+  ];
+  let hash = 0;
+  for (const c of server.name) hash = (hash * 31 + c.charCodeAt(0)) & 0xff;
+  const color = colors[hash % colors.length];
+
+  return (
+    <Link
+      href={`/servers/${server.id}`}
+      className="group relative flex items-center"
+      title={server.name}
+    >
+      {/* Active indicator pill */}
+      <span
+        className={`absolute -left-3 w-1 rounded-r-full bg-dc-text transition-all ${
+          active ? "h-8" : "h-4 opacity-0 group-hover:opacity-100"
+        }`}
+      />
+      <div
+        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg transition-all duration-150 ${
+          active ? "rounded-2xl" : "group-hover:rounded-2xl"
+        } ${server.iconUrl ? "" : color} shadow-lg cursor-pointer`}
+      >
+        {server.iconUrl ? (
+          <img src={server.iconUrl} alt={server.name} className="w-full h-full rounded-[inherit] object-cover" />
+        ) : (
+          initial
+        )}
+      </div>
+    </Link>
+  );
+}
+
+export function ServerRail({ user, initialServers }: Props) {
+  const pathname = usePathname();
+  const { socket } = useSocket();
+  const [servers, setServers] = useState<ServerWithRole[]>(initialServers);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
+  // Listen for server updates via socket
+  useEffect(() => {
+    if (!socket) return;
+    const onServerUpdate = () => {
+      fetch("/api/servers")
+        .then((r) => r.json())
+        .then((d) => setServers(d.servers ?? []));
+    };
+    socket.on("servers:update", onServerUpdate);
+    return () => { socket.off("servers:update", onServerUpdate); };
+  }, [socket]);
+
+  function handleServerCreated(server: ServerWithRole) {
+    setServers((prev) => [...prev, server]);
+    setShowCreate(false);
+  }
+
+  function handleServerJoined(server: ServerWithRole) {
+    if (!servers.find((s) => s.id === server.id)) {
+      setServers((prev) => [...prev, server]);
+    }
+    setShowJoin(false);
+  }
+
+  const activeServerId = pathname.match(/\/servers\/([^/]+)/)?.[1];
+
+  return (
+    <>
+      <nav className="w-[72px] bg-dc-rail flex flex-col items-center pt-3 pb-2 gap-2 shrink-0 overflow-y-auto scrollbar-thin">
+        {/* DM Home */}
+        <Link
+          href="/channels"
+          className={`group relative flex items-center`}
+          title="Direct Messages"
+        >
+          <span
+            className={`absolute -left-3 w-1 rounded-r-full bg-dc-text transition-all ${
+              pathname.startsWith("/channels") ? "h-8" : "h-4 opacity-0 group-hover:opacity-100"
+            }`}
+          />
+          <div
+            className={`w-12 h-12 bg-dc-sidebar flex items-center justify-center transition-all duration-150 shadow-lg ${
+              pathname.startsWith("/channels")
+                ? "rounded-2xl bg-dc-accent"
+                : "rounded-full group-hover:rounded-2xl group-hover:bg-dc-accent"
+            }`}
+          >
+            <span className="text-xl">💸</span>
+          </div>
+        </Link>
+
+        {/* Divider */}
+        <div className="w-8 h-px bg-dc-divider my-1" />
+
+        {/* Server list */}
+        {servers.map((server) => (
+          <ServerIcon
+            key={server.id}
+            server={server}
+            active={activeServerId === server.id}
+          />
+        ))}
+
+        {/* Divider before add button */}
+        {servers.length > 0 && <div className="w-8 h-px bg-dc-divider my-1" />}
+
+        {/* Add / Join server */}
+        <div className="relative">
+          <button
+            onClick={() => setShowAddMenu((p) => !p)}
+            className="w-12 h-12 rounded-full bg-dc-chat hover:bg-dc-success hover:rounded-2xl flex items-center justify-center text-dc-success hover:text-white transition-all duration-150 font-bold text-xl shadow"
+            title="Add a server"
+          >
+            +
+          </button>
+          {showAddMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+              <div className="absolute left-14 top-0 z-50 bg-dc-sidebar rounded-lg shadow-xl border border-dc-border overflow-hidden w-44">
+                <button
+                  className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
+                  onClick={() => { setShowCreate(true); setShowAddMenu(false); }}
+                >
+                  Create a Server
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
+                  onClick={() => { setShowJoin(true); setShowAddMenu(false); }}
+                >
+                  Join a Server
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </nav>
+
+      <CreateServerModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={handleServerCreated}
+      />
+      <JoinServerModal
+        open={showJoin}
+        onClose={() => setShowJoin(false)}
+        onJoined={handleServerJoined}
+      />
+    </>
+  );
+}
