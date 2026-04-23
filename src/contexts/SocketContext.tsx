@@ -18,16 +18,19 @@ const SocketContext = createContext<SocketContextValue>({
 });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [presence, setPresence] = useState<PresenceMap>({});
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) {
+      setPresence({});
+      return;
+    }
 
     const s = io(window.location.origin, {
-      auth: { token },
+      auth: token ? { token } : undefined,
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,
@@ -36,6 +39,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     s.on("connect", () => setConnected(true));
     s.on("disconnect", () => setConnected(false));
+
+    s.on("presence:snapshot", (snapshot: PresenceMap) => {
+      setPresence(snapshot);
+    });
 
     s.on("presence:update", ({ userId, online }: { userId: string; online: boolean }) => {
       setPresence((prev) => ({ ...prev, [userId]: online }));
@@ -48,7 +55,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setSocket(null);
       setConnected(false);
     };
-  }, [token]);
+  }, [user, token]);
 
   return (
     <SocketContext.Provider value={{ socket, connected, presence }}>

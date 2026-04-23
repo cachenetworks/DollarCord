@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromReq } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getIO } from "@/server/socketServer";
 
 interface Params { params: { channelId: string } }
 
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ pins: pins.map((p) => p.message) });
+  return NextResponse.json({ pins: pins.map((p) => p.message).filter((message) => !message.deleted) });
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -42,11 +43,20 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { messageId } = await req.json();
   if (!messageId) return NextResponse.json({ error: "messageId required" }, { status: 400 });
 
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, channelId: params.channelId, deleted: false },
+  });
+  if (!message) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+
   const pin = await prisma.pinnedMessage.upsert({
     where: { channelId_messageId: { channelId: params.channelId, messageId } },
     update: {},
     create: { channelId: params.channelId, messageId, pinnedBy: user.id },
   });
+
+  try {
+    getIO().to(`channel:${params.channelId}`).emit("channel:pins:update");
+  } catch {}
 
   return NextResponse.json({ pin }, { status: 201 });
 }
@@ -71,6 +81,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   await prisma.pinnedMessage.deleteMany({
     where: { channelId: params.channelId, messageId },
   });
+
+  try {
+    getIO().to(`channel:${params.channelId}`).emit("channel:pins:update");
+  } catch {}
 
   return NextResponse.json({ ok: true });
 }

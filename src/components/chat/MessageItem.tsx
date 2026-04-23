@@ -46,9 +46,22 @@ interface Props {
   onDelete: (messageId: string) => Promise<void>;
   onReaction: (messageId: string, emoji: string, hasReacted: boolean) => Promise<void>;
   onReply: (message: Message) => void;
+  onTogglePin: (messageId: string, isPinned: boolean) => Promise<void>;
+  isPinned: boolean;
 }
 
-export function MessageItem({ message, isConsecutive, currentUserId, canManage, onEdit, onDelete, onReaction, onReply }: Props) {
+export function MessageItem({
+  message,
+  isConsecutive,
+  currentUserId,
+  canManage,
+  onEdit,
+  onDelete,
+  onReaction,
+  onReply,
+  onTogglePin,
+  isPinned,
+}: Props) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
@@ -114,6 +127,7 @@ export function MessageItem({ message, isConsecutive, currentUserId, canManage, 
             <span className="font-semibold text-dc-text text-sm">{message.user.displayName}</span>
             <span className="text-dc-faint text-xs">{formatTimestamp(message.createdAt)}</span>
             {message.edited && <span className="text-dc-faint text-xs">(edited)</span>}
+            {isPinned && <span className="text-dc-accent text-xs font-semibold">Pinned</span>}
           </div>
         )}
 
@@ -203,6 +217,16 @@ export function MessageItem({ message, isConsecutive, currentUserId, canManage, 
               title="Edit"
             >
               ✏
+            </button>
+          )}
+
+          {canManage && (
+            <button
+              onClick={() => onTogglePin(message.id, isPinned)}
+              className="px-2 py-1 text-dc-muted hover:text-dc-text hover:bg-dc-hover transition-colors text-xs"
+              title={isPinned ? "Unpin" : "Pin"}
+            >
+              {isPinned ? "Unpin" : "Pin"}
             </button>
           )}
 

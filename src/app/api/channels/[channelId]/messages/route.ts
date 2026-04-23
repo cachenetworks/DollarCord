@@ -69,6 +69,20 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
 
+    if (parsed.data.replyToId) {
+      const replyTo = await prisma.message.findFirst({
+        where: {
+          id: parsed.data.replyToId,
+          channelId: params.channelId,
+          deleted: false,
+        },
+      });
+
+      if (!replyTo) {
+        return NextResponse.json({ error: "Reply target not found" }, { status: 400 });
+      }
+    }
+
     const message = await prisma.message.create({
       data: {
         channelId: params.channelId,

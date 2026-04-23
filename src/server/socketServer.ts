@@ -2,10 +2,45 @@ import { Server as SocketServer } from "socket.io";
 import type { Server as HTTPServer } from "http";
 import { validateToken } from "../lib/auth";
 
-// Global io instance shared with API routes
+const SESSION_COOKIE = "dollarcord_session";
+
 declare global {
   // eslint-disable-next-line no-var
   var __io: SocketServer | undefined;
+}
+
+const onlineUsers = new Map<string, number>();
+
+function readCookie(cookieHeader: string | undefined, name: string): string | undefined {
+  if (!cookieHeader) return undefined;
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (rawKey === name) return decodeURIComponent(rawValue.join("="));
+  }
+
+  return undefined;
+}
+
+function markOnline(userId: string): boolean {
+  const count = onlineUsers.get(userId) ?? 0;
+  onlineUsers.set(userId, count + 1);
+  return count === 0;
+}
+
+function markOffline(userId: string): boolean {
+  const count = onlineUsers.get(userId) ?? 0;
+  if (count <= 1) {
+    onlineUsers.delete(userId);
+    return true;
+  }
+
+  onlineUsers.set(userId, count - 1);
+  return false;
+}
+
+function presenceSnapshot(): Record<string, boolean> {
+  return Object.fromEntries(Array.from(onlineUsers.keys()).map((userId) => [userId, true]));
 }
 
 export function initSocketServer(httpServer: HTTPServer): SocketServer {
@@ -17,9 +52,12 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
     transports: ["websocket", "polling"],
   });
 
-  // Authenticate every socket connection
   io.use(async (socket, next) => {
-    const token = socket.handshake.auth?.token as string | undefined;
+    const authToken = socket.handshake.auth?.token;
+    const token =
+      (typeof authToken === "string" && authToken) ||
+      readCookie(socket.handshake.headers.cookie, SESSION_COOKIE);
+
     if (!token) return next(new Error("Authentication required"));
 
     const user = await validateToken(token);
@@ -33,13 +71,13 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
   io.on("connection", (socket) => {
     const userId: string = socket.data.userId;
 
-    // Join personal notification room
     socket.join(`user:${userId}`);
+    socket.emit("presence:snapshot", presenceSnapshot());
 
-    // Broadcast this user is online
-    socket.broadcast.emit("presence:update", { userId, online: true });
+    if (markOnline(userId)) {
+      socket.broadcast.emit("presence:update", { userId, online: true });
+    }
 
-    // ── Channel room management ──────────────────────────────────────────
     socket.on("channel:join", (channelId: string) => {
       socket.join(`channel:${channelId}`);
     });
@@ -48,7 +86,6 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
       socket.leave(`channel:${channelId}`);
     });
 
-    // ── Server room (for member list updates, new channels, etc.) ────────
     socket.on("server:join", (serverId: string) => {
       socket.join(`server:${serverId}`);
     });
@@ -57,7 +94,6 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
       socket.leave(`server:${serverId}`);
     });
 
-    // ── Typing indicators (channels) ─────────────────────────────────────
     socket.on("typing:start", ({ channelId }: { channelId: string }) => {
       socket.to(`channel:${channelId}`).emit("typing:start", {
         channelId,
@@ -74,7 +110,6 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
       });
     });
 
-    // ── Typing indicators (DMs) ──────────────────────────────────────────
     socket.on("dm:typing:start", ({ threadId }: { threadId: string }) => {
       socket.to(`dm:${threadId}`).emit("dm:typing:start", {
         threadId,
@@ -88,7 +123,6 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
       socket.to(`dm:${threadId}`).emit("dm:typing:stop", { threadId, userId });
     });
 
-    // ── DM room management ───────────────────────────────────────────────
     socket.on("dm:join", (threadId: string) => {
       socket.join(`dm:${threadId}`);
     });
@@ -97,9 +131,10 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
       socket.leave(`dm:${threadId}`);
     });
 
-    // ── Disconnect ───────────────────────────────────────────────────────
     socket.on("disconnect", () => {
-      socket.broadcast.emit("presence:update", { userId, online: false });
+      if (markOffline(userId)) {
+        socket.broadcast.emit("presence:update", { userId, online: false });
+      }
     });
   });
 
@@ -107,7 +142,6 @@ export function initSocketServer(httpServer: HTTPServer): SocketServer {
   return io;
 }
 
-/** Access the Socket.IO instance from API routes. */
 export function getIO(): SocketServer {
   if (!globalThis.__io) throw new Error("Socket.IO server not initialized");
   return globalThis.__io;

@@ -29,7 +29,7 @@ export default async function DMPage({ params }: Props) {
   const initialMessages = await prisma.directMessage.findMany({
     where: { threadId: params.threadId },
     include: { sender: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 50,
   });
 
@@ -38,7 +38,7 @@ export default async function DMPage({ params }: Props) {
       thread={{ ...thread, participants: thread.participants }}
       currentUser={user}
       otherUser={otherUser!}
-      initialMessages={initialMessages}
+      initialMessages={initialMessages.reverse()}
     />
   );
 }

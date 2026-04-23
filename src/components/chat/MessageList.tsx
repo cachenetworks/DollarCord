@@ -11,6 +11,8 @@ interface Props {
   onDelete: (messageId: string) => Promise<void>;
   onReaction: (messageId: string, emoji: string, hasReacted: boolean) => Promise<void>;
   onReply: (message: Message) => void;
+  onTogglePin: (messageId: string, isPinned: boolean) => Promise<void>;
+  pinnedMessageIds: Set<string>;
 }
 
 function formatDate(date: Date | string) {
@@ -23,7 +25,17 @@ function formatDate(date: Date | string) {
   return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
-export function MessageList({ messages, currentUserId, canManage, onEdit, onDelete, onReaction, onReply }: Props) {
+export function MessageList({
+  messages,
+  currentUserId,
+  canManage,
+  onEdit,
+  onDelete,
+  onReaction,
+  onReply,
+  onTogglePin,
+  pinnedMessageIds,
+}: Props) {
   if (messages.length === 0) return null;
 
   // Group by date
@@ -65,6 +77,8 @@ export function MessageList({ messages, currentUserId, canManage, onEdit, onDele
                 onDelete={onDelete}
                 onReaction={onReaction}
                 onReply={onReply}
+                onTogglePin={onTogglePin}
+                isPinned={pinnedMessageIds.has(msg.id)}
               />
             );
           })}

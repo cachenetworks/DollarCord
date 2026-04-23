@@ -61,13 +61,20 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   }
 
   // Soft delete
-  await prisma.message.update({
-    where: { id: params.messageId },
-    data: { deleted: true, content: "" },
-  });
+  await prisma.$transaction([
+    prisma.message.update({
+      where: { id: params.messageId },
+      data: { deleted: true, content: "" },
+    }),
+    prisma.pinnedMessage.deleteMany({
+      where: { messageId: params.messageId },
+    }),
+  ]);
 
   try {
-    getIO().to(`channel:${message.channelId}`).emit("channel:message:delete", { messageId: params.messageId });
+    const room = getIO().to(`channel:${message.channelId}`);
+    room.emit("channel:message:delete", { messageId: params.messageId });
+    room.emit("channel:pins:update");
   } catch {}
 
   return NextResponse.json({ ok: true });

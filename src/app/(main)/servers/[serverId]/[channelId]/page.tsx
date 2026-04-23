@@ -31,7 +31,7 @@ export default async function ChannelPage({ params }: Props) {
       reactions: { include: { user: true } },
       replyTo: { include: { user: true } },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 50,
   });
 
@@ -45,7 +45,7 @@ export default async function ChannelPage({ params }: Props) {
       channel={channel}
       currentUser={user}
       currentUserRole={member.role as "OWNER" | "ADMIN" | "MEMBER"}
-      initialMessages={initialMessages as any}
+      initialMessages={initialMessages.reverse() as any}
       pinnedMessages={pinnedMessages.map((p) => p.message) as any}
     />
   );

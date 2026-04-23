@@ -21,6 +21,7 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
   const { socket } = useSocket();
   const { addToast } = useToast();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [pins, setPins] = useState<Message[]>(pinnedMessages);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [hasMore, setHasMore] = useState(initialMessages.length === 50);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -28,12 +29,27 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setMessages(initialMessages);
+    setPins(pinnedMessages);
+    setHasMore(initialMessages.length === 50);
+    setTypingUsers([]);
+    setReplyTo(null);
+  }, [channel.id, initialMessages, pinnedMessages]);
+
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, []);
+
+  const refreshPins = useCallback(async () => {
+    const res = await fetch(`/api/channels/${channel.id}/pins`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setPins(data.pins ?? []);
+  }, [channel.id]);
 
   useEffect(() => { scrollToBottom(); }, [channel.id, scrollToBottom]);
   useEffect(() => {
@@ -62,10 +78,16 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
     socket.on("channel:message:update", (msg: Message) => {
       if (msg.channelId !== channel.id) return;
       setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+      setPins((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
     });
 
     socket.on("channel:message:delete", ({ messageId }: { messageId: string }) => {
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setPins((prev) => prev.filter((m) => m.id !== messageId));
+    });
+
+    socket.on("channel:pins:update", () => {
+      refreshPins();
     });
 
     socket.on("typing:start", (data: TypingUser & { channelId: string }) => {
@@ -86,10 +108,11 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
       socket.off("channel:message");
       socket.off("channel:message:update");
       socket.off("channel:message:delete");
+      socket.off("channel:pins:update");
       socket.off("typing:start");
       socket.off("typing:stop");
     };
-  }, [socket, channel.id, currentUser.id]);
+  }, [socket, channel.id, currentUser.id, refreshPins]);
 
   async function sendMessage(content: string) {
     const res = await fetch(`/api/channels/${channel.id}/messages`, {
@@ -137,6 +160,27 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
     }
   }
 
+  async function togglePin(messageId: string, isPinned: boolean) {
+    const res = await fetch(
+      isPinned
+        ? `/api/channels/${channel.id}/pins?messageId=${encodeURIComponent(messageId)}`
+        : `/api/channels/${channel.id}/pins`,
+      {
+        method: isPinned ? "DELETE" : "POST",
+        headers: isPinned ? undefined : { "Content-Type": "application/json" },
+        body: isPinned ? undefined : JSON.stringify({ messageId }),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json();
+      addToast(data.error || "Failed to update pinned message", "error");
+      return;
+    }
+
+    refreshPins();
+  }
+
   async function loadMore() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -155,12 +199,13 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
     : messages;
 
   const canManage = ["OWNER", "ADMIN"].includes(currentUserRole);
+  const pinnedMessageIds = new Set(pins.map((message) => message.id));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-dc-chat">
       <ChannelHeader
         channel={channel}
-        pinnedMessages={pinnedMessages}
+        pinnedMessages={pins}
         canManage={canManage}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -199,6 +244,8 @@ export function ChatArea({ channel, currentUser, currentUserRole, initialMessage
           onDelete={deleteMessage}
           onReaction={toggleReaction}
           onReply={setReplyTo}
+          onTogglePin={togglePin}
+          pinnedMessageIds={pinnedMessageIds}
         />
       </div>
 

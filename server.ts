@@ -1,10 +1,18 @@
 import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
+import { loadEnvConfig } from "@next/env";
 import { initSocketServer } from "./src/server/socketServer";
 
+const isProductionStart = process.argv.includes("--production");
+if (isProductionStart) {
+  (process.env as Record<string, string | undefined>)["NODE_ENV"] = "production";
+}
+
+loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
+
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = process.env.HOSTNAME || "localhost";
 const port = parseInt(process.env.PORT ?? "3000", 10);
 
 const app = next({ dev, hostname, port });
@@ -19,7 +27,7 @@ app.prepare().then(() => {
   initSocketServer(httpServer);
 
   httpServer.listen(port, () => {
-    console.log(`\n💸 DollarCord running at http://${hostname}:${port}\n`);
+    console.log(`\nDollarCord running at http://${hostname}:${port}\n`);
   });
 
   httpServer.on("error", (err) => {

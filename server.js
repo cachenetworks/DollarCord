@@ -1,20 +1,22 @@
 // Plain JS custom server entrypoint.
-// Uses tsx only for transpiling user TypeScript (not node_modules).
-// This avoids tsx's module hook conflicting with Next.js's require-hook.
+// Uses tsx only for transpiling user TypeScript, not node_modules.
 
-const { createServer } = require('http');
-const { parse } = require('url');
-const path = require('path');
+const { createServer } = require("http");
+const { parse } = require("url");
 
-// Register tsx as a TypeScript transformer for user code only.
-// tsx by default skips node_modules, avoiding conflicts with next's require-hook.
-require('tsx/cjs');
+const isProductionStart = process.argv.includes("--production");
+if (isProductionStart) {
+  process.env.NODE_ENV = "production";
+}
 
-const next = require('next');
+require("@next/env").loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
+require("tsx/cjs");
 
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = parseInt(process.env.PORT || '8000', 10);
+const next = require("next");
+
+const dev = process.env.NODE_ENV !== "production";
+const hostname = process.env.HOSTNAME || "localhost";
+const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -25,16 +27,15 @@ app.prepare().then(() => {
     handle(req, res, parsedUrl);
   });
 
-  // Load the Socket.IO initializer (TypeScript, processed by tsx above)
-  const { initSocketServer } = require('./src/server/socketServer');
+  const { initSocketServer } = require("./src/server/socketServer");
   initSocketServer(httpServer);
 
   httpServer.listen(port, () => {
-    console.log(`\n💸 DollarCord running at http://${hostname}:${port}\n`);
+    console.log(`\nDollarCord running at http://${hostname}:${port}\n`);
   });
 
-  httpServer.on('error', (err) => {
-    console.error('Server error:', err);
+  httpServer.on("error", (err) => {
+    console.error("Server error:", err);
     process.exit(1);
   });
 });
