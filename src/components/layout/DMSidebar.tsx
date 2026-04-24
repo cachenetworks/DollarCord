@@ -70,7 +70,7 @@ export function DMSidebar({ threads: initialThreads, currentUserId }: Props) {
 
   return (
     <>
-      <aside className="w-60 bg-dc-sidebar flex flex-col shrink-0 overflow-hidden">
+      <aside className="w-60 min-h-0 bg-dc-sidebar flex flex-col shrink-0 overflow-visible">
         {/* Header */}
         <div className="px-3 py-3 border-b border-dc-border">
           <div className="relative">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { CreateServerModal } from "@/components/modals/CreateServerModal";
@@ -58,6 +58,7 @@ function ServerIcon({ server, active }: { server: Server; active: boolean }) {
 
 export function ServerRail({ user, initialServers }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const { socket } = useSocket();
   const [servers, setServers] = useState<ServerWithRole[]>(initialServers);
   const [showCreate, setShowCreate] = useState(false);
@@ -79,6 +80,14 @@ export function ServerRail({ user, initialServers }: Props) {
   function handleServerCreated(server: ServerWithRole) {
     setServers((prev) => [...prev, server]);
     setShowCreate(false);
+
+    const firstChannel = server.channels?.[0];
+    if (firstChannel) {
+      router.push(`/servers/${server.id}/${firstChannel.id}`);
+      return;
+    }
+
+    router.push(`/servers/${server.id}`);
   }
 
   function handleServerJoined(server: ServerWithRole) {
@@ -92,7 +101,8 @@ export function ServerRail({ user, initialServers }: Props) {
 
   return (
     <>
-      <nav className="w-[72px] bg-dc-rail flex flex-col items-center pt-3 pb-2 gap-2 shrink-0 overflow-y-auto scrollbar-thin">
+      <nav className="w-[72px] bg-dc-rail shrink-0">
+        <div className="relative flex h-full flex-col items-center pt-3 pb-2">
         {/* DM Home */}
         <Link
           href="/channels"
@@ -118,20 +128,22 @@ export function ServerRail({ user, initialServers }: Props) {
         {/* Divider */}
         <div className="w-8 h-px bg-dc-divider my-1" />
 
-        {/* Server list */}
-        {servers.map((server) => (
-          <ServerIcon
-            key={server.id}
-            server={server}
-            active={activeServerId === server.id}
-          />
-        ))}
+        <div className="flex min-h-0 flex-1 w-full flex-col items-center gap-2 overflow-y-auto scrollbar-thin">
+          {/* Server list */}
+          {servers.map((server) => (
+            <ServerIcon
+              key={server.id}
+              server={server}
+              active={activeServerId === server.id}
+            />
+          ))}
 
-        {/* Divider before add button */}
-        {servers.length > 0 && <div className="w-8 h-px bg-dc-divider my-1" />}
+          {/* Divider before add button */}
+          {servers.length > 0 && <div className="w-8 h-px bg-dc-divider my-1" />}
+        </div>
 
         {/* Add / Join server */}
-        <div className="relative">
+        <div className="relative mt-2">
           <button
             onClick={() => setShowAddMenu((p) => !p)}
             className="w-12 h-12 rounded-full bg-dc-chat hover:bg-dc-success hover:rounded-2xl flex items-center justify-center text-dc-success hover:text-white transition-all duration-150 font-bold text-xl shadow"
@@ -158,6 +170,7 @@ export function ServerRail({ user, initialServers }: Props) {
               </div>
             </>
           )}
+        </div>
         </div>
       </nav>
 

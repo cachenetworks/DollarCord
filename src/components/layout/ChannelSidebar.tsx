@@ -100,7 +100,7 @@ export function ChannelSidebar({ server, channels: initialChannels, currentUserI
 
   return (
     <>
-      <aside className="w-60 bg-dc-sidebar flex flex-col shrink-0 overflow-hidden">
+      <aside className="w-60 min-h-0 bg-dc-sidebar flex flex-col shrink-0 overflow-visible">
         {/* Server header */}
         <div className="relative">
           <button
