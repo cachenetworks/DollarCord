@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageItem } from "./MessageItem";
+import { formatRelativeDate } from "@/lib/dateTime";
 import type { Message } from "@/types";
 
 interface Props {
@@ -13,16 +14,6 @@ interface Props {
   onReply: (message: Message) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => Promise<void>;
   pinnedMessageIds: Set<string>;
-}
-
-function formatDate(date: Date | string) {
-  const d = new Date(date);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
 export function MessageList({
@@ -41,7 +32,7 @@ export function MessageList({
   // Group by date
   const groups: { date: string; msgs: Message[] }[] = [];
   for (const msg of messages) {
-    const date = formatDate(msg.createdAt);
+    const date = formatRelativeDate(msg.createdAt);
     const last = groups[groups.length - 1];
     if (last && last.date === date) last.msgs.push(msg);
     else groups.push({ date, msgs: [msg] });

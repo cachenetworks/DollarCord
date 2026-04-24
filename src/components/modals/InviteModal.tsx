@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/contexts/ToastContext";
+import { formatShortDate } from "@/lib/dateTime";
 import type { Invite } from "@/types";
 
 interface Props {
@@ -82,7 +83,7 @@ export function InviteModal({ open, onClose, serverId }: Props) {
                 <div className="text-dc-muted text-xs text-right shrink-0">
                   <p>Used {invite.uses}{invite.maxUses ? `/${invite.maxUses}` : ""} time{invite.uses !== 1 ? "s" : ""}</p>
                   {invite.expiresAt && (
-                    <p>Expires {new Date(invite.expiresAt).toLocaleDateString()}</p>
+                    <p>Expires {formatShortDate(invite.expiresAt)}</p>
                   )}
                 </div>
                 <button

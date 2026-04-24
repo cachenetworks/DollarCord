@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Channel, Message } from "@/types";
 import { Modal } from "@/components/ui/Modal";
-import { MessageItem } from "./MessageItem";
+import { formatShortDate } from "@/lib/dateTime";
 
 interface Props {
   channel: Channel & { server: { name: string } };
@@ -88,7 +88,7 @@ export function ChannelHeader({ channel, pinnedMessages, canManage, searchQuery,
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-dc-text text-sm font-semibold">{msg.user.displayName}</span>
                   <span className="text-dc-faint text-xs">
-                    {new Date(msg.createdAt).toLocaleDateString()}
+                    {formatShortDate(msg.createdAt)}
                   </span>
                 </div>
                 <p className="text-dc-text text-sm">{msg.content}</p>

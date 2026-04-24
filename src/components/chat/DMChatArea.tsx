@@ -6,6 +6,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { TypingIndicator } from "./TypingIndicator";
 import { MessageInput } from "./MessageInput";
+import { formatRelativeDate, formatTime } from "@/lib/dateTime";
 import type { DirectMessage, DirectMessageThread, User, TypingUser } from "@/types";
 
 interface Props {
@@ -13,21 +14,6 @@ interface Props {
   currentUser: User;
   otherUser: User;
   initialMessages: DirectMessage[];
-}
-
-function formatTimestamp(date: Date | string) {
-  const d = new Date(date);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDate(date: Date | string) {
-  const d = new Date(date);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
 export function DMChatArea({ thread, currentUser, otherUser, initialMessages }: Props) {
@@ -111,7 +97,7 @@ export function DMChatArea({ thread, currentUser, otherUser, initialMessages }: 
   // Group messages by date
   const groupedMessages: { date: string; messages: DirectMessage[] }[] = [];
   for (const msg of messages) {
-    const date = formatDate(msg.createdAt);
+    const date = formatRelativeDate(msg.createdAt);
     const last = groupedMessages[groupedMessages.length - 1];
     if (last && last.date === date) last.messages.push(msg);
     else groupedMessages.push({ date, messages: [msg] });
@@ -169,7 +155,7 @@ export function DMChatArea({ thread, currentUser, otherUser, initialMessages }: 
                   {isConsecutive ? (
                     <div className="w-10 shrink-0 flex items-center justify-center">
                       <span className="text-dc-faint text-xs opacity-0 group-hover:opacity-100">
-                        {formatTimestamp(msg.createdAt)}
+                        {formatTime(msg.createdAt)}
                       </span>
                     </div>
                   ) : (
@@ -179,7 +165,7 @@ export function DMChatArea({ thread, currentUser, otherUser, initialMessages }: 
                     {!isConsecutive && (
                       <div className="flex items-baseline gap-2 mb-0.5">
                         <span className="font-semibold text-dc-text text-sm">{msg.sender.displayName}</span>
-                        <span className="text-dc-faint text-xs">{formatTimestamp(msg.createdAt)}</span>
+                        <span className="text-dc-faint text-xs">{formatTime(msg.createdAt)}</span>
                       </div>
                     )}
                     {msg.deleted ? (

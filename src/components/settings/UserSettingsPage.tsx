@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { Avatar } from "@/components/ui/Avatar";
+import { formatDate } from "@/lib/dateTime";
 import type { User } from "@/types";
 
 interface Props { user: User }
@@ -164,7 +165,7 @@ export function UserSettingsPage({ user }: Props) {
                 <div>
                   <p className="text-dc-muted text-xs uppercase tracking-wide font-semibold mb-1">Member Since</p>
                   <p className="text-dc-text text-sm">
-                    {new Date(user.createdAt).toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" })}
+                    {formatDate(user.createdAt)}
                   </p>
                 </div>
               </div>

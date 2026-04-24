@@ -2,13 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { formatTime } from "@/lib/dateTime";
 import type { Message, Reaction } from "@/types";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🎉", "🔥", "💸"];
-
-function formatTimestamp(date: Date | string) {
-  return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 /** Minimal markdown renderer: **bold**, *italic*, `code`, ~~strike~~, > blockquote, ```codeblock``` */
 function renderMarkdown(text: string): string {
@@ -111,7 +108,7 @@ export function MessageItem({
         <div className="w-10 shrink-0 flex items-center justify-center mt-0.5">
           {showActions && (
             <span className="text-dc-faint text-xs">
-              {formatTimestamp(message.createdAt)}
+              {formatTime(message.createdAt)}
             </span>
           )}
         </div>
@@ -125,7 +122,7 @@ export function MessageItem({
         {!isConsecutive && (
           <div className="flex items-baseline gap-2 mb-0.5">
             <span className="font-semibold text-dc-text text-sm">{message.user.displayName}</span>
-            <span className="text-dc-faint text-xs">{formatTimestamp(message.createdAt)}</span>
+            <span className="text-dc-faint text-xs">{formatTime(message.createdAt)}</span>
             {message.edited && <span className="text-dc-faint text-xs">(edited)</span>}
             {isPinned && <span className="text-dc-accent text-xs font-semibold">Pinned</span>}
           </div>
