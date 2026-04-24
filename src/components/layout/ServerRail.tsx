@@ -154,7 +154,7 @@ export function ServerRail({ user, initialServers }: Props) {
           {showAddMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
-              <div className="absolute left-14 top-0 z-50 bg-dc-sidebar rounded-lg shadow-xl border border-dc-border overflow-hidden w-44">
+              <div className="absolute bottom-0 left-14 z-50 bg-dc-sidebar rounded-lg shadow-xl border border-dc-border overflow-hidden w-44">
                 <button
                   className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
                   onClick={() => { setShowCreate(true); setShowAddMenu(false); }}
