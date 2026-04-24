@@ -50,7 +50,8 @@ export default async function ServerLayout({ children, params }: Props) {
       <MemberSidebar
         members={typedMembers}
         serverId={server.id}
-        ownerId={server.ownerId}
+        currentUserId={user.id}
+        currentUserRole={membership.role as "OWNER" | "ADMIN" | "MEMBER"}
       />
     </div>
   );

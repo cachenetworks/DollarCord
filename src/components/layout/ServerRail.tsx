@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSocket } from "@/contexts/SocketContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { CreateServerModal } from "@/components/modals/CreateServerModal";
 import { JoinServerModal } from "@/components/modals/JoinServerModal";
-import type { Server, Channel, User } from "@/types";
+import type { Channel, Server, User } from "@/types";
 
 interface ServerWithRole extends Server {
   role: string;
@@ -35,7 +34,6 @@ function ServerIcon({ server, active }: { server: Server; active: boolean }) {
       className="group relative flex items-center"
       title={server.name}
     >
-      {/* Active indicator pill */}
       <span
         className={`absolute -left-3 w-1 rounded-r-full bg-dc-text transition-all ${
           active ? "h-8" : "h-4 opacity-0 group-hover:opacity-100"
@@ -56,7 +54,7 @@ function ServerIcon({ server, active }: { server: Server; active: boolean }) {
   );
 }
 
-export function ServerRail({ user, initialServers }: Props) {
+export function ServerRail({ user: _user, initialServers }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { socket } = useSocket();
@@ -65,17 +63,28 @@ export function ServerRail({ user, initialServers }: Props) {
   const [showJoin, setShowJoin] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
-  // Listen for server updates via socket
   useEffect(() => {
     if (!socket) return;
+
     const onServerUpdate = () => {
       fetch("/api/servers")
         .then((r) => r.json())
         .then((d) => setServers(d.servers ?? []));
     };
+
     socket.on("servers:update", onServerUpdate);
-    return () => { socket.off("servers:update", onServerUpdate); };
+    return () => {
+      socket.off("servers:update", onServerUpdate);
+    };
   }, [socket]);
+
+  const activeServerId = pathname.match(/\/servers\/([^/]+)/)?.[1];
+
+  useEffect(() => {
+    if (!activeServerId) return;
+    if (servers.some((server) => server.id === activeServerId)) return;
+    router.push("/channels");
+  }, [activeServerId, router, servers]);
 
   function handleServerCreated(server: ServerWithRole) {
     setServers((prev) => [...prev, server]);
@@ -97,80 +106,73 @@ export function ServerRail({ user, initialServers }: Props) {
     setShowJoin(false);
   }
 
-  const activeServerId = pathname.match(/\/servers\/([^/]+)/)?.[1];
-
   return (
     <>
       <nav className="w-[72px] bg-dc-rail shrink-0">
         <div className="relative flex h-full flex-col items-center pt-3 pb-2">
-        {/* DM Home */}
-        <Link
-          href="/channels"
-          className={`group relative flex items-center`}
-          title="Direct Messages"
-        >
-          <span
-            className={`absolute -left-3 w-1 rounded-r-full bg-dc-text transition-all ${
-              pathname.startsWith("/channels") ? "h-8" : "h-4 opacity-0 group-hover:opacity-100"
-            }`}
-          />
-          <div
-            className={`w-12 h-12 bg-dc-sidebar flex items-center justify-center transition-all duration-150 shadow-lg ${
-              pathname.startsWith("/channels")
-                ? "rounded-2xl bg-dc-accent"
-                : "rounded-full group-hover:rounded-2xl group-hover:bg-dc-accent"
-            }`}
+          <Link
+            href="/channels"
+            className="group relative flex items-center"
+            title="Direct Messages"
           >
-            <span className="text-xl">💸</span>
-          </div>
-        </Link>
-
-        {/* Divider */}
-        <div className="w-8 h-px bg-dc-divider my-1" />
-
-        <div className="flex min-h-0 flex-1 w-full flex-col items-center gap-2 overflow-y-auto scrollbar-thin">
-          {/* Server list */}
-          {servers.map((server) => (
-            <ServerIcon
-              key={server.id}
-              server={server}
-              active={activeServerId === server.id}
+            <span
+              className={`absolute -left-3 w-1 rounded-r-full bg-dc-text transition-all ${
+                pathname.startsWith("/channels") ? "h-8" : "h-4 opacity-0 group-hover:opacity-100"
+              }`}
             />
-          ))}
+            <div
+              className={`w-12 h-12 bg-dc-sidebar flex items-center justify-center transition-all duration-150 shadow-lg font-bold text-lg ${
+                pathname.startsWith("/channels")
+                  ? "rounded-2xl bg-dc-accent text-white"
+                  : "rounded-full group-hover:rounded-2xl group-hover:bg-dc-accent text-dc-text group-hover:text-white"
+              }`}
+            >
+              $
+            </div>
+          </Link>
 
-          {/* Divider before add button */}
-          {servers.length > 0 && <div className="w-8 h-px bg-dc-divider my-1" />}
-        </div>
+          <div className="w-8 h-px bg-dc-divider my-1" />
 
-        {/* Add / Join server */}
-        <div className="relative mt-2">
-          <button
-            onClick={() => setShowAddMenu((p) => !p)}
-            className="w-12 h-12 rounded-full bg-dc-chat hover:bg-dc-success hover:rounded-2xl flex items-center justify-center text-dc-success hover:text-white transition-all duration-150 font-bold text-xl shadow"
-            title="Add a server"
-          >
-            +
-          </button>
-          {showAddMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
-              <div className="absolute bottom-0 left-14 z-50 bg-dc-sidebar rounded-lg shadow-xl border border-dc-border overflow-hidden w-44">
-                <button
-                  className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
-                  onClick={() => { setShowCreate(true); setShowAddMenu(false); }}
-                >
-                  Create a Server
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
-                  onClick={() => { setShowJoin(true); setShowAddMenu(false); }}
-                >
-                  Join a Server
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          <div className="flex min-h-0 flex-1 w-full flex-col items-center gap-2 overflow-y-auto scrollbar-thin">
+            {servers.map((server) => (
+              <ServerIcon
+                key={server.id}
+                server={server}
+                active={activeServerId === server.id}
+              />
+            ))}
+
+            {servers.length > 0 && <div className="w-8 h-px bg-dc-divider my-1" />}
+          </div>
+
+          <div className="relative mt-2">
+            <button
+              onClick={() => setShowAddMenu((p) => !p)}
+              className="w-12 h-12 rounded-full bg-dc-chat hover:bg-dc-success hover:rounded-2xl flex items-center justify-center text-dc-success hover:text-white transition-all duration-150 font-bold text-xl shadow"
+              title="Add a server"
+            >
+              +
+            </button>
+            {showAddMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                <div className="absolute bottom-0 left-14 z-50 bg-dc-sidebar rounded-lg shadow-xl border border-dc-border overflow-hidden w-44">
+                  <button
+                    className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
+                    onClick={() => { setShowCreate(true); setShowAddMenu(false); }}
+                  >
+                    Create a Server
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2.5 text-sm text-dc-text hover:bg-dc-hover transition-colors"
+                    onClick={() => { setShowJoin(true); setShowAddMenu(false); }}
+                  >
+                    Join a Server
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 

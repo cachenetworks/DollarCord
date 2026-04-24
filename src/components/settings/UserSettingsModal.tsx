@@ -37,7 +37,10 @@ export function UserSettingsModal({ open, onClose, user }: Props) {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { addToast(data.error || "Update failed", "error"); return; }
+      if (!res.ok) {
+        addToast(data.error || "Update failed", "error");
+        return;
+      }
       setUser(data.user);
       addToast("Profile updated!", "success");
       onClose();
@@ -52,7 +55,14 @@ export function UserSettingsModal({ open, onClose, user }: Props) {
         <Avatar user={{ ...user, avatarUrl: form.avatarUrl || null }} size="lg" />
         <div>
           <p className="text-dc-text font-semibold">{form.displayName || user.displayName}</p>
-          <p className="text-dc-muted text-sm">@{user.username}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-dc-muted text-sm">@{user.username}</p>
+            {user.isPlatformAdmin && (
+              <span className="rounded-full bg-dc-accent/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-dc-accent">
+                DollarCord Admin
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <form onSubmit={handleSave} className="space-y-4">
@@ -83,13 +93,13 @@ export function UserSettingsModal({ open, onClose, user }: Props) {
             value={form.avatarUrl}
             onChange={(e) => setForm((f) => ({ ...f, avatarUrl: e.target.value }))}
             className="w-full bg-dc-input text-dc-text px-3 py-2 rounded border border-dc-border focus:border-dc-accent focus:outline-none text-sm"
-            placeholder="https://…"
+            placeholder="https://example.com/avatar.png"
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-dc-muted hover:text-dc-text transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="px-4 py-2 bg-dc-accent hover:bg-dc-accent-hover disabled:opacity-50 text-white text-sm font-semibold rounded transition-colors">
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </form>

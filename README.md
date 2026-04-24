@@ -11,14 +11,15 @@ Real-time Discord-inspired chat app with servers, channels, DMs, presence, typin
 ## Features
 
 - Authentication with registration, login, logout, bcrypt password hashing, and database-backed sessions.
-- Servers with invite codes, owner/admin/member roles, member lists, and server settings.
+- Servers with invite codes, owner/admin/member roles, member lists, server settings, kicks, bans, and unbans.
 - Text channels with create, rename, delete, and permission-aware channel management.
 - Real-time messaging powered by Socket.IO channel rooms and server rooms.
 - Typing indicators and online presence updates.
 - Message editing, deletion, replies, emoji reactions, and pinned messages.
 - Direct message threads with user search and real-time DM updates.
 - User profile settings, display names, bios, and account management screens.
-- Seeded demo data for quick local testing.
+- Clean first-run setup with no default users, servers, channels, or messages.
+- The first registered account automatically becomes the DollarCord platform admin.
 - Dark, Discord-style interface built with Tailwind CSS.
 
 ## Tech Stack
@@ -69,10 +70,15 @@ Never commit `.env` or your local SQLite database. They are ignored by the inclu
 
 ### Database
 
-Run the Prisma migration and optionally seed demo content:
+Run the Prisma migration:
 
 ```bash
 npx prisma migrate dev
+```
+
+If you want to wipe your local database back to a clean, empty state, run:
+
+```bash
 npm run db:seed
 ```
 
@@ -84,17 +90,16 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Demo Accounts
+## First Run
 
-After running `npm run db:seed`, you can sign in with:
+DollarCord now starts clean. There are no default demo users, servers, channels, or messages.
 
-| Email | Password | Role |
-| --- | --- | --- |
-| `alice@dollarcord.app` | `password123` | Server owner |
-| `bob@dollarcord.app` | `password123` | Server admin |
-| `charlie@dollarcord.app` | `password123` | Member |
+After running your migrations:
 
-Seeded content includes the `DollarCord HQ` server, `general`, `off-topic`, and `dev-talk` channels, sample messages, a direct message thread, and the invite code `dollarcord`.
+1. Open the app and register your first account.
+2. That first account will be marked as the DollarCord platform admin.
+3. Create your first server from the `+` button in the left rail.
+4. Invite other users or let them create their own servers.
 
 ## Scripts
 
@@ -105,8 +110,8 @@ Seeded content includes the `DollarCord HQ` server, `general`, `off-topic`, and 
 | `npm run start` | Start the production server. |
 | `npm run postinstall` | Generate the Prisma client after install. |
 | `npm run db:migrate` | Run Prisma migrations in development. |
-| `npm run db:seed` | Seed demo users, servers, channels, messages, and DMs. |
-| `npm run db:reset` | Reset the database and seed it again. |
+| `npm run db:seed` | Clear the local database back to an empty, ready-to-register state. |
+| `npm run db:reset` | Reset the database, re-apply migrations, and clear it to the same empty state. |
 
 ## Project Structure
 
@@ -114,7 +119,7 @@ Seeded content includes the `DollarCord HQ` server, `general`, `off-topic`, and 
 prisma/
   migrations/        Database migration files
   schema.prisma      Prisma models for users, sessions, servers, channels, messages, DMs, pins, and reactions
-  seed.ts            Demo data used for local development
+  seed.ts            Helper script that clears local development data
 
 src/
   app/               Next.js App Router pages, layouts, and API routes

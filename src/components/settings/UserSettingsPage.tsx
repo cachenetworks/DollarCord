@@ -56,7 +56,6 @@ export function UserSettingsPage({ user }: Props) {
 
   return (
     <div className="flex flex-1 overflow-hidden bg-dc-chat">
-      {/* Settings sidebar */}
       <div className="w-56 bg-dc-sidebar border-r border-dc-border p-4 shrink-0">
         <p className="text-dc-muted text-xs font-semibold uppercase tracking-wide mb-2 px-2">User Settings</p>
         {(["profile", "account"] as const).map((tab) => (
@@ -80,19 +79,24 @@ export function UserSettingsPage({ user }: Props) {
         </div>
       </div>
 
-      {/* Settings content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="max-w-2xl mx-auto px-8 py-8">
           {activeTab === "profile" && (
             <>
               <h2 className="text-dc-text text-xl font-bold mb-6">My Profile</h2>
 
-              {/* Preview card */}
               <div className="bg-dc-sidebar rounded-lg p-4 mb-6 flex items-center gap-4">
                 <Avatar user={preview} size="lg" />
                 <div>
                   <p className="text-dc-text font-semibold">{preview.displayName || "Display Name"}</p>
-                  <p className="text-dc-muted text-sm">@{user.username}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-dc-muted text-sm">@{user.username}</p>
+                    {user.isPlatformAdmin && (
+                      <span className="rounded-full bg-dc-accent/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-dc-accent">
+                        DollarCord Admin
+                      </span>
+                    )}
+                  </div>
                   {preview.bio && <p className="text-dc-muted text-sm mt-1">{preview.bio}</p>}
                 </div>
               </div>
@@ -144,7 +148,7 @@ export function UserSettingsPage({ user }: Props) {
                   disabled={saving}
                   className="px-6 py-2 bg-dc-accent hover:bg-dc-accent-hover disabled:opacity-50 text-white text-sm font-semibold rounded transition-colors"
                 >
-                  {saving ? "Saving…" : "Save Changes"}
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </form>
             </>
@@ -164,9 +168,11 @@ export function UserSettingsPage({ user }: Props) {
                 </div>
                 <div>
                   <p className="text-dc-muted text-xs uppercase tracking-wide font-semibold mb-1">Member Since</p>
-                  <p className="text-dc-text text-sm">
-                    {formatDate(user.createdAt)}
-                  </p>
+                  <p className="text-dc-text text-sm">{formatDate(user.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-dc-muted text-xs uppercase tracking-wide font-semibold mb-1">Platform Role</p>
+                  <p className="text-dc-text text-sm">{user.isPlatformAdmin ? "DollarCord Admin" : "User"}</p>
                 </div>
               </div>
               <div className="mt-6 p-4 bg-dc-danger/10 rounded-lg border border-dc-danger/20">

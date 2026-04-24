@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromReq } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { joinServerSchema } from "@/lib/validations";
+import { getIO } from "@/server/socketServer";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUserFromReq(req);
@@ -21,6 +22,18 @@ export async function POST(req: NextRequest) {
 
     if (!invite) {
       return NextResponse.json({ error: "Invalid invite code" }, { status: 404 });
+    }
+
+    const existingBan = await prisma.serverBan.findUnique({
+      where: {
+        serverId_userId: {
+          serverId: invite.serverId,
+          userId: user.id,
+        },
+      },
+    });
+    if (existingBan) {
+      return NextResponse.json({ error: "You are banned from this server" }, { status: 403 });
     }
 
     // Check expiry
@@ -52,6 +65,12 @@ export async function POST(req: NextRequest) {
         data: { uses: { increment: 1 } },
       }),
     ]);
+
+    try {
+      const io = getIO();
+      io.to(`server:${invite.serverId}`).emit("server:members:update");
+      io.to(`user:${user.id}`).emit("servers:update");
+    } catch {}
 
     return NextResponse.json({ server: invite.server });
   } catch (err) {

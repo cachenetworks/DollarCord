@@ -8,24 +8,27 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  displayName  String
-  passwordHash String
-  bio          String?
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  username        String   @unique
+  displayName     String
+  passwordHash    String
+  isPlatformAdmin Boolean  @default(false)
+  bio             String?
+  avatarUrl       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  sessions              Session[]
-  ownedServers          Server[]                   @relation("ServerOwner")
-  serverMembers         ServerMember[]
-  messages              Message[]
-  dmsSent               DirectMessage[]            @relation("DMSender")
-  dmParticipants        DirectMessageParticipant[]
-  reactionsGiven        Reaction[]
-  pinnedBy              PinnedMessage[]            @relation("PinnedBy")
+  sessions         Session[]
+  ownedServers     Server[]                   @relation("ServerOwner")
+  serverMembers    ServerMember[]
+  messages         Message[]
+  dmsSent          DirectMessage[]            @relation("DMSender")
+  dmParticipants   DirectMessageParticipant[]
+  reactionsGiven   Reaction[]
+  pinnedBy         PinnedMessage[]            @relation("PinnedBy")
+  serverBans       ServerBan[]                @relation("ServerBanUser")
+  issuedServerBans ServerBan[]                @relation("ServerBanActor")
 }
 
 model Session {
@@ -51,6 +54,7 @@ model Server {
   members  ServerMember[]
   channels Channel[]
   invites  Invite[]
+  bans     ServerBan[]
 }
 
 model ServerMember {
@@ -62,6 +66,21 @@ model ServerMember {
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
+}
+
+model ServerBan {
+  id        String   @id @default(cuid())
+  serverId  String
+  userId    String
+  bannedBy  String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user   User   @relation("ServerBanUser", fields: [userId], references: [id], onDelete: Cascade)
+  actor  User   @relation("ServerBanActor", fields: [bannedBy], references: [id], onDelete: Cascade)
 
   @@unique([serverId, userId])
 }
@@ -88,7 +107,7 @@ model Channel {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  server         Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server         Server          @relation(fields: [serverId], references: [id], onDelete: Cascade)
   messages       Message[]
   pinnedMessages PinnedMessage[]
 }
@@ -104,10 +123,10 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  channel   Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id])
-  replyTo   Message?       @relation("MessageReply", fields: [replyToId], references: [id])
-  replies   Message[]      @relation("MessageReply")
+  channel   Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id])
+  replyTo   Message?        @relation("MessageReply", fields: [replyToId], references: [id])
+  replies   Message[]       @relation("MessageReply")
   reactions Reaction[]
   pinnedIn  PinnedMessage[]
 }

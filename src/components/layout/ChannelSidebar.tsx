@@ -235,7 +235,10 @@ export function ChannelSidebar({ server, channels: initialChannels, currentUserI
         open={showCreate}
         onClose={() => setShowCreate(false)}
         serverId={server.id}
-        onCreated={(ch) => setChannels((prev) => [...prev, ch])}
+        onCreated={(ch) => {
+          setChannels((prev) => [...prev, ch].sort((a, b) => a.position - b.position));
+          router.push(`/servers/${server.id}/${ch.id}`);
+        }}
       />
       <InviteModal
         open={showInvite}

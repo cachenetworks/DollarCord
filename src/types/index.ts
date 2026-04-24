@@ -3,6 +3,7 @@ export interface User {
   email: string;
   username: string;
   displayName: string;
+  isPlatformAdmin?: boolean;
   bio: string | null;
   avatarUrl: string | null;
   createdAt: Date | string;
@@ -26,6 +27,17 @@ export interface ServerMember {
   role: "OWNER" | "ADMIN" | "MEMBER";
   joinedAt: Date | string;
   user: User;
+}
+
+export interface ServerBan {
+  id: string;
+  serverId: string;
+  userId: string;
+  bannedBy: string;
+  reason: string | null;
+  createdAt: Date | string;
+  user: User;
+  actor?: User;
 }
 
 export interface Invite {

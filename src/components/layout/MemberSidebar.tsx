@@ -1,37 +1,130 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSocket } from "@/contexts/SocketContext";
+import { useToast } from "@/contexts/ToastContext";
 import { Avatar } from "@/components/ui/Avatar";
-import type { ServerMember } from "@/types";
+import { canBanMember, canChangeRole, canRemoveMember } from "@/lib/serverPermissions";
+import type { MemberRole, ServerMember } from "@/types";
 
 interface Props {
   members: ServerMember[];
   serverId: string;
-  ownerId: string;
+  currentUserId: string;
+  currentUserRole: MemberRole;
 }
 
-const roleOrder = { OWNER: 0, ADMIN: 1, MEMBER: 2 };
 const roleLabel = { OWNER: "Owner", ADMIN: "Admins", MEMBER: "Members" };
+const roleWeight: Record<MemberRole, number> = { OWNER: 0, ADMIN: 1, MEMBER: 2 };
+
+function sortMembers(members: ServerMember[]) {
+  return [...members].sort(
+    (left, right) =>
+      roleWeight[left.role] - roleWeight[right.role] ||
+      +new Date(left.joinedAt) - +new Date(right.joinedAt)
+  );
+}
 
 function groupByRole(members: ServerMember[]) {
-  const groups: Record<string, ServerMember[]> = { OWNER: [], ADMIN: [], MEMBER: [] };
-  for (const m of members) groups[m.role]?.push(m);
+  const groups: Record<MemberRole, ServerMember[]> = { OWNER: [], ADMIN: [], MEMBER: [] };
+  for (const member of members) groups[member.role]?.push(member);
   return groups;
 }
 
-export function MemberSidebar({ members, serverId, ownerId }: Props) {
-  const { presence } = useSocket();
+export function MemberSidebar({ members, serverId, currentUserId, currentUserRole }: Props) {
+  const { presence, socket } = useSocket();
+  const { addToast } = useToast();
   const [search, setSearch] = useState("");
+  const [memberList, setMemberList] = useState(sortMembers(members));
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const filtered = members.filter(
-    (m) =>
-      m.user.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      m.user.username.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    setMemberList(sortMembers(members));
+  }, [members]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshMembers = async () => {
+      const res = await fetch(`/api/servers/${serverId}/members`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMemberList(sortMembers(data.members ?? []));
+    };
+
+    socket.on("server:members:update", refreshMembers);
+    return () => {
+      socket.off("server:members:update", refreshMembers);
+    };
+  }, [serverId, socket]);
+
+  async function updateRole(target: ServerMember, role: "ADMIN" | "MEMBER") {
+    const busy = `${target.userId}:role:${role}`;
+    setBusyKey(busy);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/members?userId=${target.userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        addToast(data.error || "Failed to update role", "error");
+        return;
+      }
+
+      setMemberList((prev) =>
+        sortMembers(prev.map((member) => (member.userId === target.userId ? { ...member, role } : member)))
+      );
+      addToast(`${target.user.displayName} is now ${role === "ADMIN" ? "an admin" : "a member"}.`, "success");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function removeMember(target: ServerMember, action: "kick" | "ban") {
+    const verb = action === "ban" ? "ban" : "kick";
+    if (!window.confirm(`${verb[0].toUpperCase()}${verb.slice(1)} ${target.user.displayName}?`)) return;
+
+    const busy = `${target.userId}:${action}`;
+    setBusyKey(busy);
+    try {
+      const endpoint = action === "ban" ? `/api/servers/${serverId}/bans` : `/api/servers/${serverId}/members?userId=${target.userId}`;
+      const options =
+        action === "ban"
+          ? {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ targetUserId: target.userId }),
+            }
+          : {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kick: true }),
+            };
+
+      const res = await fetch(endpoint, options);
+      const data = await res.json();
+      if (!res.ok) {
+        addToast(data.error || `Failed to ${action} member`, "error");
+        return;
+      }
+
+      setMemberList((prev) => prev.filter((member) => member.userId !== target.userId));
+      addToast(`${target.user.displayName} was ${action === "ban" ? "banned" : "kicked"}.`, "success");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  const filtered = memberList.filter(
+    (member) =>
+      member.user.displayName.toLowerCase().includes(search.toLowerCase()) ||
+      member.user.username.toLowerCase().includes(search.toLowerCase())
   );
 
   const groups = groupByRole(filtered);
-  const onlineCount = members.filter((m) => presence[m.userId]).length;
+  const onlineCount = memberList.filter((member) => presence[member.userId]).length;
 
   return (
     <aside className="w-60 bg-dc-sidebar border-l border-dc-border flex flex-col shrink-0 overflow-hidden">
@@ -44,8 +137,8 @@ export function MemberSidebar({ members, serverId, ownerId }: Props) {
           className="w-full bg-dc-input text-dc-text text-sm px-3 py-1.5 rounded border border-dc-border focus:border-dc-accent focus:outline-none placeholder-dc-muted"
         />
         <p className="text-dc-muted text-xs mt-2 px-1">
-          {members.length} member{members.length !== 1 ? "s" : ""}
-          {onlineCount > 0 && ` · ${onlineCount} online`}
+          {memberList.length} member{memberList.length !== 1 ? "s" : ""}
+          {onlineCount > 0 && ` - ${onlineCount} online`}
         </p>
       </div>
 
@@ -57,14 +150,20 @@ export function MemberSidebar({ members, serverId, ownerId }: Props) {
           return (
             <div key={role} className="mb-3">
               <p className="text-xs font-semibold text-dc-muted uppercase tracking-wide px-2 mb-1">
-                {roleLabel[role]} — {group.length}
+                {roleLabel[role]} - {group.length}
               </p>
               {group.map((member) => {
                 const online = presence[member.userId] ?? false;
+                const isSelf = member.userId === currentUserId;
+                const canPromote = !isSelf && canChangeRole(currentUserRole, member.role) && member.role === "MEMBER";
+                const canDemote = !isSelf && canChangeRole(currentUserRole, member.role) && member.role === "ADMIN";
+                const canKick = !isSelf && canRemoveMember(currentUserRole, member.role);
+                const canBan = !isSelf && canBanMember(currentUserRole, member.role);
+
                 return (
                   <div
                     key={member.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dc-hover transition-colors cursor-pointer group"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dc-hover transition-colors group"
                   >
                     <Avatar user={member.user} size="sm" online={online} />
                     <div className="min-w-0 flex-1">
@@ -74,10 +173,50 @@ export function MemberSidebar({ members, serverId, ownerId }: Props) {
                       <p className="text-xs text-dc-faint truncate">@{member.user.username}</p>
                     </div>
                     {role === "OWNER" && (
-                      <span className="shrink-0 text-xs text-dc-warning" title="Server Owner">👑</span>
+                      <span className="shrink-0 text-xs text-dc-warning" title="Server Owner">Owner</span>
                     )}
                     {role === "ADMIN" && (
-                      <span className="shrink-0 text-xs text-dc-accent" title="Admin">🛡</span>
+                      <span className="shrink-0 text-xs text-dc-accent" title="Admin">Admin</span>
+                    )}
+                    {(canPromote || canDemote || canKick || canBan) && (
+                      <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                        {canPromote && (
+                          <button
+                            onClick={() => updateRole(member, "ADMIN")}
+                            disabled={busyKey === `${member.userId}:role:ADMIN`}
+                            className="px-2 py-1 rounded text-[11px] font-semibold bg-dc-accent/15 text-dc-accent hover:bg-dc-accent/25 disabled:opacity-50 transition-colors"
+                          >
+                            Promote
+                          </button>
+                        )}
+                        {canDemote && (
+                          <button
+                            onClick={() => updateRole(member, "MEMBER")}
+                            disabled={busyKey === `${member.userId}:role:MEMBER`}
+                            className="px-2 py-1 rounded text-[11px] font-semibold bg-dc-hover text-dc-text hover:bg-dc-border disabled:opacity-50 transition-colors"
+                          >
+                            Demote
+                          </button>
+                        )}
+                        {canKick && (
+                          <button
+                            onClick={() => removeMember(member, "kick")}
+                            disabled={busyKey === `${member.userId}:kick`}
+                            className="px-2 py-1 rounded text-[11px] font-semibold bg-dc-warning/15 text-dc-warning hover:bg-dc-warning/25 disabled:opacity-50 transition-colors"
+                          >
+                            Kick
+                          </button>
+                        )}
+                        {canBan && (
+                          <button
+                            onClick={() => removeMember(member, "ban")}
+                            disabled={busyKey === `${member.userId}:ban`}
+                            className="px-2 py-1 rounded text-[11px] font-semibold bg-dc-danger/15 text-dc-danger hover:bg-dc-danger/25 disabled:opacity-50 transition-colors"
+                          >
+                            Ban
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

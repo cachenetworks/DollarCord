@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, username, displayName, password } = parsed.data;
+    const userCount = await prisma.user.count();
 
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
@@ -24,7 +25,13 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = hashSync(password, 12);
     const user = await prisma.user.create({
-      data: { email, username, displayName, passwordHash },
+      data: {
+        email,
+        username,
+        displayName,
+        passwordHash,
+        isPlatformAdmin: userCount === 0,
+      },
     });
 
     const token = randomBytes(32).toString("hex");
